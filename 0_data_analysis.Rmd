@@ -1,0 +1,89 @@
+---
+title: "Medical_Student_Mental_Health_Data_Analysis"
+author: "George Melrose"
+date: "10/07/2024"
+output: 
+ html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+rm(list = ls())
+
+knitr::opts_chunk$set(echo = TRUE,warning = FALSE, message = FALSE)
+
+pacman::p_load(tidyverse,icd,knitr,kableExtra,finalfit,lubridate,data.table,
+               janitor,flextable,survival,survminer,cmprsk,rmdHelpers, ggrepel,
+               scales)
+
+
+```
+
+
+```{r}
+Data_Carrard_et_al_2022_MedTeach <- read_csv("C:/Users/gam55/Downloads/archive/Data Carrard et al. 2022 MedTeach.csv")
+
+Codebook_Carrard_et_al_2022_MedTeach <- read_csv("C:/Users/gam55/Downloads/archive/Codebook Carrard et al. 2022 MedTeach.csv")
+
+data <- Data_Carrard_et_al_2022_MedTeach
+
+max_separators <- max(str_count(Codebook_Carrard_et_al_2022_MedTeach$`Variable Name;Variable Label;Variable Scale;;;`, ";"))
+
+extra_columns <- paste0("Extra", 1:max_separators)
+
+data_separated <- Codebook_Carrard_et_al_2022_MedTeach %>%
+  separate(`Variable Name;Variable Label;Variable Scale;;;`, into = c("Variable Name", "Variable Label", "Variable Scale", extra_columns), sep = ";", fill = "right")
+
+
+
+data_separated <- data_separated %>%
+  rowwise() %>%
+  mutate(`Variable Scale` = concatenate_extras(c_across()))
+
+rm(Data_Carrard_et_al_2022_MedTeach)
+```
+
+
+```{r}
+str(data)
+```
+
+```{r summary statistics for students age}
+
+summary(data$age)
+
+```
+```{r finding out how many students there are per year}
+
+academic_year_counts <- data %>%
+  group_by(year) %>%
+  summarise(student_count = n()) %>%
+  arrange(year)
+
+academic_year_counts$year <- as.factor(academic_year_counts$year)
+```
+
+```{r}
+ggplot(academic_year_counts, aes(x = year, y = student_count)) +
+  geom_col(fill = "blue", alpha = 0.8) +
+  geom_text(aes(label = student_count), vjust = -0.5, size = 3.5, color = "darkblue") +
+  scale_y_continuous(labels = comma) +
+  labs(title = "Number of students enrolled in each academic year",
+       x = "Academic Year",
+       y = "Number of Students") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    axis.title.x = element_text(size = 12, face = "bold"),
+    axis.title.y = element_text(size = 12, face = "bold"),
+    axis.text.x = element_text(hjust = 1),
+    panel.grid.major = element_line(size = 0.1, linetype = 'dotted'),
+    panel.grid.minor = element_blank()
+  ) 
+
+```
+
+
