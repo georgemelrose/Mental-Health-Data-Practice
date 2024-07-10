@@ -46,7 +46,7 @@ rm(Data_Carrard_et_al_2022_MedTeach)
 ```
 
 
-```{r}
+```{r looking at data types}
 str(data)
 ```
 
