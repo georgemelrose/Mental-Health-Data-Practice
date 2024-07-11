@@ -16,7 +16,7 @@ knitr::opts_chunk$set(echo = TRUE,warning = FALSE, message = FALSE)
 
 pacman::p_load(tidyverse,icd,knitr,kableExtra,finalfit,lubridate,data.table,
                janitor,flextable,survival,survminer,cmprsk,rmdHelpers, ggrepel,
-               scales,RColorBrewer)
+               scales,RColorBrewer,GGally,randomForest, caret)
 
 
 ```
@@ -341,11 +341,167 @@ ggplot(job_counts, aes(x = fct_reorder(job_yn, student_count, .desc = TRUE), y =
 
 ```{r finding out the health satisfaction of the data}
 
-job_counts <- data %>%
-  group_by(job_yn) %>%
+health_satisfaction_counts <- data %>%
+  group_by(health_satisfaction) %>%
   summarise(student_count = n()) %>%
   mutate(percentage = (student_count / sum(student_count)) * 100) %>%
   arrange(desc(percentage))
 
-job_counts
+health_satisfaction_counts
 ```
+
+
+```{r plotting distribution of students by health satisfaction}
+ggplot(health_satisfaction_counts, aes(x = fct_reorder(health_satisfaction, student_count, .desc = TRUE), y = student_count, fill = health_satisfaction)) +
+  geom_col(alpha = 0.8) +
+  geom_text(aes(label = student_count), vjust = -0.5, size = 3.5, color = "darkblue") +
+  scale_y_continuous(labels = comma) +
+  scale_fill_brewer(palette = "Set3") +
+  labs(title = "Number of students by Health Satisfaction",
+       x = "Satisfied with Health?",
+       y = "Number of Students") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    axis.title.x = element_text(size = 12, face = "bold"),
+    axis.title.y = element_text(size = 12, face = "bold"),
+    axis.text.x = element_text(hjust = 1, angle = 45),
+    panel.grid.major = element_line(size = 0.1, linetype = 'dotted'),
+    panel.grid.minor = element_blank(),
+    legend.position = "none"  
+  )
+
+```
+
+
+```{r finding out the psychotherapy usage of the data}
+
+pyschotherapy_counts <- data %>%
+  group_by(psyt_yn) %>%
+  summarise(student_count = n()) %>%
+  mutate(percentage = (student_count / sum(student_count)) * 100) %>%
+  arrange(desc(percentage))
+
+pyschotherapy_counts
+```
+
+```{r plotting distribution of students by psychotherapy usage}
+ggplot(pyschotherapy_counts, aes(x = fct_reorder(psyt_yn, student_count, .desc = TRUE), y = student_count, fill = psyt_yn)) +
+  geom_col(alpha = 0.8) +
+  geom_text(aes(label = student_count), vjust = -0.5, size = 3.5, color = "darkblue") +
+  scale_y_continuous(labels = comma) +
+  scale_fill_brewer(palette = "Set3") +
+  labs(title = "Number of students by Psychotherapy Usage",
+       x = "Psychotherapy Usage in last 12 Months?",
+       y = "Number of Students") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    axis.title.x = element_text(size = 12, face = "bold"),
+    axis.title.y = element_text(size = 12, face = "bold"),
+    axis.text.x = element_text(hjust = 1),
+    panel.grid.major = element_line(size = 0.1, linetype = 'dotted'),
+    panel.grid.minor = element_blank(),
+    legend.position = "none"  
+  )
+
+```
+
+```{r}
+numerical_indices <- c(2,8,11,12,13,14,15,16,17,18,19,20)
+
+ggpairs(data, columns = numerical_indices)
+```
+
+
+```{r}
+data$sex_character <- as.factor(data$sex_character)
+
+data$native_language <- as.factor(data$native_language)
+
+data$partner <- as.factor(data$partner)
+
+data$job_yn <- as.factor(data$job_yn)
+
+data$health_satisfaction <- as.factor(data$health_satisfaction)
+
+data$psyt_yn <- as.factor(data$psyt_yn)
+
+```
+
+
+
+```{r model evaluation function}
+model_evaluation <- function(model, test_sample, truth, categorical = TRUE) {
+  yhat <- predict(model, test_sample)
+  score <- sum(yhat == truth) / length(truth)
+  text <- sprintf("Accuracy score for the model: %.2f%%", score * 100)
+  
+  if (categorical) {
+    cm <- confusionMatrix(yhat, truth)
+    print(cm)
+    heatmap_data <- as.data.frame(cm$table)
+    colnames(heatmap_data) <- c("Predicted", "Actual", "Freq")
+    
+    ggplot(heatmap_data, aes(x = Predicted, y = Actual, fill = Freq)) +
+      geom_tile() +
+      geom_text(aes(label = Freq), color = "white") +
+      labs(title = text, fill = "Count") +
+      theme_minimal()
+    
+  } else {
+    test_sample$predicted <- yhat
+    print(text)
+    ggpairs(test_sample, aes(color = as.factor(predicted)))
+  }
+}
+
+```
+
+```{r}
+# Select columns for X and y
+temp <- c(2,3,8,11:20,22:25,27)
+X <- data[, temp]
+y <- data$health_satisfaction
+
+
+# Split data into training and testing sets
+set.seed(42)
+trainIndex <- createDataPartition(y, p = 0.8, list = FALSE)
+X_train <- X[trainIndex, ]
+X_test <- X[-trainIndex, ]
+y_train <- y[trainIndex]
+y_test <- y[-trainIndex]
+
+# Train a Random Forest model
+set.seed(0)
+forest <- randomForest(X_train, y_train)
+
+# Calculate feature importances
+importances <- importance(forest)
+forest_importances <- data.frame(Feature = rownames(importances),
+                                 Importance = importances)
+
+std <- apply(importances, 2, sd)
+
+forest_importances$Std <- std
+
+# Plot the feature importances with error bars
+ggplot(forest_importances, aes(x = reorder(Feature, MeanDecreaseGini), y = MeanDecreaseGini)) +
+  geom_bar(stat = "identity", fill = "blue", alpha = 0.8) +
+  geom_errorbar(aes(ymin = MeanDecreaseGini - Std, ymax = MeanDecreaseGini + Std), width = 0.2) +
+  coord_flip() +
+  labs(title = "Feature Importances using MDI",
+       x = "Features",
+       y = "Mean Decrease in Impurity") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),
+    axis.title.x = element_text(size = 12, face = "bold"),
+    axis.title.y = element_text(size = 12, face = "bold"),
+    axis.text.x = element_text(hjust = 1)
+  )
+```
+
