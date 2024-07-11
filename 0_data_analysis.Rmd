@@ -16,34 +16,138 @@ knitr::opts_chunk$set(echo = TRUE,warning = FALSE, message = FALSE)
 
 pacman::p_load(tidyverse,icd,knitr,kableExtra,finalfit,lubridate,data.table,
                janitor,flextable,survival,survminer,cmprsk,rmdHelpers, ggrepel,
-               scales)
+               scales,RColorBrewer)
 
 
 ```
 
 
-```{r}
+```{r loading in data}
 Data_Carrard_et_al_2022_MedTeach <- read_csv("C:/Users/gam55/Downloads/archive/Data Carrard et al. 2022 MedTeach.csv")
 
 Codebook_Carrard_et_al_2022_MedTeach <- read_csv("C:/Users/gam55/Downloads/archive/Codebook Carrard et al. 2022 MedTeach.csv")
 
 data <- Data_Carrard_et_al_2022_MedTeach
 
-max_separators <- max(str_count(Codebook_Carrard_et_al_2022_MedTeach$`Variable Name;Variable Label;Variable Scale;;;`, ";"))
-
-extra_columns <- paste0("Extra", 1:max_separators)
-
-data_separated <- Codebook_Carrard_et_al_2022_MedTeach %>%
-  separate(`Variable Name;Variable Label;Variable Scale;;;`, into = c("Variable Name", "Variable Label", "Variable Scale", extra_columns), sep = ";", fill = "right")
-
-
-
-data_separated <- data_separated %>%
-  rowwise() %>%
-  mutate(`Variable Scale` = concatenate_extras(c_across()))
 
 rm(Data_Carrard_et_al_2022_MedTeach)
 ```
+
+```{r formatting variables}
+#Getting the curriculum year specifically#
+data <- data %>%
+  mutate(curriculum_year = case_when(
+    year == 1 ~ "Bmed1",
+    year == 2 ~ "Bmed2",
+    year == 3 ~ "Bmed3",
+    year == 4 ~ "Mmed1",
+    year == 5 ~ "Mmed2",
+    year == 6 ~ "Mmed3",
+    TRUE ~ NA_character_  
+  ))
+
+#Generating a sex character column#
+data <- data %>%
+  mutate(sex_character = case_when(
+    sex == 1 ~ "Man",
+    sex == 2 ~ "Woman",
+    sex == 3 ~ "Non-binary",
+    TRUE ~ NA_character_
+  ))
+
+#Mapping glang values to a native language column#
+data <- data %>%
+  mutate(native_language = case_when(
+    glang == 1 ~ "French",
+    glang == 15 ~ "German",
+    glang == 20 ~ "English",
+    glang == 37 ~ "Arab",
+    glang == 51 ~ "Basque",
+    glang == 52 ~ "Bulgarian",
+    glang == 53 ~ "Catalan",
+    glang == 54 ~ "Chinese",
+    glang == 59 ~ "Korean",
+    glang == 60 ~ "Croatian",
+    glang == 62 ~ "Danish",
+    glang == 63 ~ "Spanish",
+    glang == 82 ~ "Estonian",
+    glang == 83 ~ "Finnish",
+    glang == 84 ~ "Galician",
+    glang == 85 ~ "Greek",
+    glang == 86 ~ "Hebrew",
+    glang == 87 ~ "Hindi",
+    glang == 88 ~ "Hungarian",
+    glang == 89 ~ "Indonesian",
+    glang == 90 ~ "Italian",
+    glang == 92 ~ "Japanese",
+    glang == 93 ~ "Kazakh",
+    glang == 94 ~ "Latvian",
+    glang == 95 ~ "Lithuanian",
+    glang == 96 ~ "Malay",
+    glang == 98 ~ "Dutch",
+    glang == 100 ~ "Norwegian",
+    glang == 101 ~ "Polish",
+    glang == 102 ~ "Portuguese",
+    glang == 104 ~ "Romanian",
+    glang == 106 ~ "Russian",
+    glang == 108 ~ "Serbian",
+    glang == 112 ~ "Slovak",
+    glang == 113 ~ "Slovenian",
+    glang == 114 ~ "Swedish",
+    glang == 116 ~ "Czech",
+    glang == 117 ~ "Thai",
+    glang == 118 ~ "Turkish",
+    glang == 119 ~ "Ukrainian",
+    glang == 120 ~ "Vietnamese",
+    glang == 121 ~ "Other",
+    TRUE ~ NA_character_  
+  ))
+
+#Mapping partner values to a partner column#
+data <- data %>%
+  mutate(partner = case_when(
+    part == 0 ~ "No",
+    part == 1 ~ "Yes",
+    TRUE ~ NA_character_ 
+  ))
+
+#Mapping partner values to a partner column#
+data <- data %>%
+  mutate(job_yn = case_when(
+    job == 0 ~ "No",
+    job == 1 ~ "Yes",
+    TRUE ~ NA_character_ 
+  ))
+
+#Mapping partner values to a partner column#
+data <- data %>%
+  mutate(job_yn = case_when(
+    job == 0 ~ "No",
+    job == 1 ~ "Yes",
+    TRUE ~ NA_character_ 
+  ))
+
+#Mapping health satisfaction values to a satisfaction column#
+data <- data %>%
+  mutate(health_satisfaction = case_when(
+    health == 1 ~ "Very dissatisfied",
+    health == 2 ~ "Dissatisfied",
+    health == 3 ~ "Neither satisfied nor dissatisfied",
+    health == 4 ~ "Satisfied",
+    health == 5 ~ "Very satisfied",
+    TRUE ~ NA_character_ 
+  ))
+
+#Mapping psychotherapy values to a psychotherapy column#
+data <- data %>%
+  mutate(psyt_yn = case_when(
+    psyt == 0 ~ "No",
+    psyt == 1 ~ "Yes",
+    TRUE ~ NA_character_ 
+  ))
+
+```
+
 
 
 ```{r looking at data types}
@@ -60,12 +164,13 @@ summary(data$age)
 academic_year_counts <- data %>%
   group_by(year) %>%
   summarise(student_count = n()) %>%
+  mutate(percentage = (student_count / sum(student_count)) * 100) %>%
   arrange(year)
 
 academic_year_counts$year <- as.factor(academic_year_counts$year)
 ```
 
-```{r}
+```{r plotting distribution of students across academic years}
 ggplot(academic_year_counts, aes(x = year, y = student_count)) +
   geom_col(fill = "blue", alpha = 0.8) +
   geom_text(aes(label = student_count), vjust = -0.5, size = 3.5, color = "darkblue") +
@@ -87,3 +192,160 @@ ggplot(academic_year_counts, aes(x = year, y = student_count)) +
 ```
 
 
+```{r finding out the gender split in the data}
+
+sex_counts <- data %>%
+  group_by(sex_character) %>%
+  summarise(student_count = n()) %>%
+  mutate(percentage = (student_count / sum(student_count)) * 100) %>%
+  arrange(sex_character)
+
+sex_counts
+```
+
+
+```{r plotting distribution of students across the sexes}
+ggplot(sex_counts, aes(x = fct_reorder(sex_character, student_count, .desc = TRUE), y = student_count, fill = sex_character)) +
+  geom_col(alpha = 0.8) +
+  geom_text(aes(label = student_count), vjust = -0.5, size = 3.5, color = "darkblue") +
+  scale_y_continuous(labels = comma) +
+  scale_fill_brewer(palette = "Set3") +
+  labs(title = "Number of students by Sex",
+       x = "Sex",
+       y = "Number of Students") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    axis.title.x = element_text(size = 12, face = "bold"),
+    axis.title.y = element_text(size = 12, face = "bold"),
+    axis.text.x = element_text(hjust = 1),
+    panel.grid.major = element_line(size = 0.1, linetype = 'dotted'),
+    panel.grid.minor = element_blank(),
+    legend.position = "none"  # Remove legend if not needed
+  )
+
+```
+
+```{r finding out the native languages of the data}
+
+language_counts <- data %>%
+  group_by(native_language) %>%
+  summarise(student_count = n()) %>%
+  mutate(percentage = (student_count / sum(student_count)) * 100) %>%
+  arrange(desc(percentage))
+
+language_counts
+```
+
+```{r plotting distribution of students by native language}
+ggplot(language_counts, aes(x = fct_reorder(native_language, student_count, .desc = TRUE), y = student_count, fill = native_language)) +
+  geom_col(alpha = 0.8) +
+  geom_text(aes(label = student_count), vjust = -0.5, size = 3.5, color = "darkblue") +
+  scale_y_continuous(labels = comma) +
+  scale_fill_brewer(palette = "Set3") +
+  labs(title = "Number of students for each Native Language",
+       x = "Native Language",
+       y = "Number of Students") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    axis.title.x = element_text(size = 12, face = "bold"),
+    axis.title.y = element_text(size = 12, face = "bold"),
+    axis.text.x = element_text(hjust = 1, angle = 45),
+    panel.grid.major = element_line(size = 0.1, linetype = 'dotted'),
+    panel.grid.minor = element_blank(),
+    legend.position = "none"  # Remove legend if not needed
+  )
+
+```
+
+
+
+
+
+```{r finding out the partner status of the data}
+
+partner_counts <- data %>%
+  group_by(partner) %>%
+  summarise(student_count = n()) %>%
+  mutate(percentage = (student_count / sum(student_count)) * 100) %>%
+  arrange(desc(percentage))
+
+partner_counts
+```
+
+
+```{r plotting distribution of students by partner status}
+ggplot(partner_counts, aes(x = fct_reorder(partner, student_count, .desc = TRUE), y = student_count, fill = partner)) +
+  geom_col(alpha = 0.8) +
+  geom_text(aes(label = student_count), vjust = -0.5, size = 3.5, color = "darkblue") +
+  scale_y_continuous(labels = comma) +
+  scale_fill_brewer(palette = "Set3") +
+  labs(title = "Number of students by Partner Status",
+       x = "Has Partner?",
+       y = "Number of Students") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    axis.title.x = element_text(size = 12, face = "bold"),
+    axis.title.y = element_text(size = 12, face = "bold"),
+    axis.text.x = element_text(hjust = 1),
+    panel.grid.major = element_line(size = 0.1, linetype = 'dotted'),
+    panel.grid.minor = element_blank(),
+    legend.position = "none"  
+  )
+
+```
+
+
+
+```{r finding out the job status of the data}
+
+job_counts <- data %>%
+  group_by(job_yn) %>%
+  summarise(student_count = n()) %>%
+  mutate(percentage = (student_count / sum(student_count)) * 100) %>%
+  arrange(desc(percentage))
+
+job_counts
+```
+
+
+```{r plotting distribution of students by job status}
+ggplot(job_counts, aes(x = fct_reorder(job_yn, student_count, .desc = TRUE), y = student_count, fill = job_yn)) +
+  geom_col(alpha = 0.8) +
+  geom_text(aes(label = student_count), vjust = -0.5, size = 3.5, color = "darkblue") +
+  scale_y_continuous(labels = comma) +
+  scale_fill_brewer(palette = "Set3") +
+  labs(title = "Number of students by Job Status",
+       x = "Has Job?",
+       y = "Number of Students") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    axis.title.x = element_text(size = 12, face = "bold"),
+    axis.title.y = element_text(size = 12, face = "bold"),
+    axis.text.x = element_text(hjust = 1),
+    panel.grid.major = element_line(size = 0.1, linetype = 'dotted'),
+    panel.grid.minor = element_blank(),
+    legend.position = "none"  
+  )
+
+```
+
+
+
+```{r finding out the health satisfaction of the data}
+
+job_counts <- data %>%
+  group_by(job_yn) %>%
+  summarise(student_count = n()) %>%
+  mutate(percentage = (student_count / sum(student_count)) * 100) %>%
+  arrange(desc(percentage))
+
+job_counts
+```
