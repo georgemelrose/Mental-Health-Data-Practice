@@ -1,7 +1,7 @@
 Whilst looking for health data scientist positions, I interviewed for one job centered around mental health prediction modelling. To become more familiar with this domain of medicine, I started some practice analysis on a mental health dataset -
 https://www.kaggle.com/datasets/thedevastator/medical-student-mental-health
 
-This dataset has 887 rows and the following 12 columns:
+This dataset has 887 rows and the following 12 columns - 
 
     id - unique identifier
     sex - Gender of the participant. (String)
@@ -25,7 +25,7 @@ This dataset has 887 rows and the following 12 columns:
 
 I plan to do the formatting of variables and exploratory data analysis (summary statistics, Q-Q plots, box-plots, t-tests etc.), followed by survival analysis and prediction modelling in an RMD to be knitted into an interactive HTML document.
 
-I've planned the analysis using the following resources:
+I've planned the analysis using the following resources - 
 
     Other repos on my github - https://github.com/georgemelrose/Dummy-HES-APC-Data-Work , https://github.com/georgemelrose/Mental-Health-Data-Practice
 
